@@ -53,37 +53,13 @@ size_t strnspn(const char *s1, const char *s2, const size_t n)
 */
 
 
-int init()
-{
-	int ret;
-	char *sset;
-
-	if ((ret = parse_args(argc, argv, &sset, &fp)) < 0)
-		return ret;
-
-	/* stolen from strchr */
-	csetp = memset(character_set, 0, 64);
-	memset(csetp + 64, 0, 64);
-	memset(csetp + 128, 0, 64);
-	memset(csetp + 192, 0, 64);
-
-	set_length = 0;
-	while (*sset) {
-		p[*sset++] = 1;
-		set_length++;
-	}
-
-	return 0;
-}
-
-
 int desperate()
 {
 	int c;
 	unsigned char start, i;
 	size_t position;
 
-	char buffer[set_length];
+	unsigned char buffer[set_length];
 
 	memset(buffer, 0, set_length);
 	start = i = 0;
@@ -91,11 +67,12 @@ int desperate()
 
 	/* find spans which are set_length in ...length. */
 	while ((c = fgetc(fp)) != EOF) {
-		if (!c) { /* null byte, reset everything. */
+		if (!c || (c == 0x000A)) {
+			/* null byte or LF, reset everything. */
 			while (start != i) {
 				csetp[buffer[start++]] = 1;
-				if (s == set_length)
-					s = 0;
+				if (start == set_length)
+					start = 0;
 			}
 			start = i = 0;
 			position = 0;
@@ -108,8 +85,8 @@ int desperate()
 		if (i == set_length)
 			i = 0;
 
-		if ((csetp[c]--) == 0) {
-			/* duplicate, unput characters up to c*/
+		if (csetp[c] == 0) {
+			/* duplicate, unput characters up to c */
 			while (buffer[start] != c) {
 				csetp[buffer[start++]] = 1;
 				if (start == set_length)
@@ -117,6 +94,7 @@ int desperate()
 
 				position++;
 			}
+			goto shift;
 		} else if (i == start) {
 			unsigned char sp = start;
 
@@ -125,20 +103,25 @@ int desperate()
 				printf("%ld,", position);
 
 			do {
-				fputc(buffer[sp], stdout);
+				fputc(buffer[sp++], stdout);
 				if (sp == set_length)
 					sp = 0;
 			} while (sp != i);
-			fputc('\n');
+			fputc('\n', stdout);
 
 			/* unput the first character */
-			csetp[buffer[start++]] = 1;
-			if (start == set_length)
+			csetp[buffer[start]] = 1;
+shift:
+			if (++start == set_length)
 				start = 0;
 
 			position++;
 		}
+
+		csetp[c] = 0;
 	}
+
+	return 0;
 }
 
 
@@ -152,9 +135,9 @@ superpermutation(s) in FILE matching the characters in SET.\n\
 FILE may be explicitly set to '-' for STDIN, which is the default value.\n\
 \n\
 To process multiple superpermutations in one execution, separate them with\n\
-the NULL byte, \\x00. The special characters \\x00 and \\xFF may not be used\n\
-in SET. SET must be given as raw bytes; escaped sequences will not be\n\
-interpreted by this program.\n\
+the NULL byte, \\x00, or the Line Feed character, \\x0A. The special\n\
+characters \\x00 and \\x0A must therefore not be used in SET. SET must be\n\
+given as raw bytes; escaped sequences will not be interpreted.\n\
 \n\
 Options:\n\
   -h, --help           Show this message.\n\
@@ -169,6 +152,9 @@ int invalid_sset(const char *sset)
 		return 1;
 
 	if (strlen(sset) == 0)
+		return 1;
+
+	if (strchr(sset, 0x000A))
 		return 1;
 
 	return 0;
@@ -187,6 +173,7 @@ int parse_args(int argc, char * const *argv, char **sset, FILE **fp_in)
 		{ 0 }
 	};
 
+	*sset = NULL;
 	*fp_in = NULL;
 
 	while ((opt = getopt_long(argc, argv, optstring, longopts, NULL)) \
@@ -235,8 +222,8 @@ int parse_args(int argc, char * const *argv, char **sset, FILE **fp_in)
 		}
 	}
 
-	if (invalid_cset(*sset)) {
-		PRINT_ERROR("a valid set of characters must be provided.");
+	if (invalid_sset(*sset)) {
+		PRINT_ERROR("a valid set of characters must be provided.\n");
 		usage();
 		return -3; // exit 2
 	}
@@ -255,6 +242,30 @@ void exit_hndl()
 }
 
 
+int init(int argc, char * const *argv)
+{
+	int ret;
+	char *sset;
+
+	if ((ret = parse_args(argc, argv, &sset, &fp)) < 0)
+		return ret;
+
+	/* stolen from strchr */
+	csetp = memset(character_set, 0, 64);
+	memset(csetp + 64, 0, 64);
+	memset(csetp + 128, 0, 64);
+	memset(csetp + 192, 0, 64);
+
+	set_length = 0;
+	while (*sset) {
+		csetp[(unsigned char)*sset++] = 1;
+		set_length++;
+	}
+
+	return 0;
+}
+
+
 int main(int argc, char *argv[])
 {
 	int ret;
@@ -264,7 +275,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if ((ret = init()) < 0)
+	if ((ret = init(argc, argv)) < 0)
 		return ~ret;
 
 	return desperate();

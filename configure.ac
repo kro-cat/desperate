@@ -58,12 +58,18 @@ AC_CONFIG_SRCDIR([src/])
 AC_CONFIG_HEADERS([config.h])
 
 #program config
+AC_PROG_CC
 
 #headers
 
 #types
+AC_TYPE_SIZE_T
 
 #functions
+AC_CHECK_FUNCS([atexit])
+AC_CHECK_FUNCS([memset])
+AC_CHECK_FUNCS([strchr])
+AC_CHECK_FUNCS([strerror])
 
 #makefiles
 AC_CONFIG_FILES([
