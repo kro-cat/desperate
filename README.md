@@ -3,8 +3,8 @@ DE-SuperPERmutATE
 
 ## Overview
 
-`desperate` reads a list of elements, encoded as a string of elements, and
-determines the unique permutations present in the list. The valid set of
+`desperate` reads a set, encoded as a string of elements, and determines all
+unique permutations present in a superpermutation on that set. The valid set of
 elements is given as a character-set on the command-line, similarly to the `tr`
 program. `desperate` will print out any valid permutations onto STDOUT.
 With the `--numbered` option, it will additionally print the position of the
